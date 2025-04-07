@@ -1,0 +1,169 @@
+---
+title: "Homework 7"
+author: "Bird Smith -- kbs2529"
+date: "2025-04-1"
+output:
+  pdf_document: default
+  html_document: default
+---
+#All code
+
+```{r, include=FALSE}
+#Download necessary packages
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = FALSE)
+library(MatchIt)
+library(tidyverse)
+library(dplyr)
+library(kableExtra)
+library(stringr)
+library(mosaic)
+```
+
+## Problem 1: Armfolding
+
+```{r, include=FALSE}
+#Load the data set
+armfold.data <- read.csv("~/Documents/SDS315/armfold.csv")
+```
+
+### A. 
+
+```{r, echo=FALSE}
+sex_table <- table(armfold.data$Sex)
+kable(sex_table, caption = "Count of Male and Female Students")
+```
+
+```{r, include=FALSE}
+x <- sum(armfold.data$W.Hnd == "Left" & armfold.data$Sex == "Male")
+n <- 217
+sample.prop.men <- x / n
+
+y <- sum(armfold.data$W.Hnd == "Left" & armfold.data$Sex == "Female")
+sample.prop.fem <- y / n
+```
+
+### B.
+
+```{r, echo=FALSE}
+sample.prop.diff <- sample.prop.men - sample.prop.fem
+```
+
+### C.
+
+```{r, echo=FALSE}
+prop.diff = do(10000) * diffprop(W.Hnd == "Left" ~ Sex, data = resample(armfold.data))
+
+#Compute 95% confidence interval
+confint(prop.diff, level = 0.95)
+```
+
+## Problem 2: Get out the Vote
+
+```{r, include=FALSE}
+#Load the data set
+turnout.data <- read.csv("~/Documents/SDS315/turnout.csv")
+```
+
+### Part A. 
+
+```{r, echo=FALSE}
+w <- sum(turnout.data$voted1998 == 1 & turnout.data$GOTV_call == 1)
+d <- 217
+prop.voted <- w / d
+
+m <- sum(turnout.data$voted1998 == 1 & turnout.data$GOTV_call == 0)
+prop.voted2 <- m / d
+
+prop.diff2 = do(10000) * diffprop(voted1998 == 1 ~ GOTV_call, data = resample(turnout.data))
+
+#Compute 95% confidence interval
+confint <- confint(prop.diff2, level = 0.95)
+```
+
+### Part B. 
+
+```{r, echo=FALSE}
+vote_table <- table(turnout.data$voted1998, turnout.data$voted1996)
+kable(vote_table, caption = "Voting in 1998 by Voting in 1996")
+
+age_summary <- summarise(
+  group_by(turnout.data, voted1996),
+  Mean_Age = round(mean(AGE), 1),
+  SD_Age = round(sd(AGE), 1),
+  Min_Age = min(AGE),
+  Max_Age = max(AGE),
+  N = n()
+)
+kable(age_summary, caption = "Summary of Age by Voting in 1996")
+
+party_table <- table(turnout.data$MAJORPTY, turnout.data$voted1996)
+kable(party_table, caption = "Party Affiliation by Voting in 1996")
+
+#Difference in 1998 voting rates by 1996 voting
+diff.1996.vote <- do(10000) * diffprop(voted1998 ~ voted1996, data = resample(turnout.data))
+confint2 <- confint(diff.1996.vote, level = 0.95)
+kable(confint2)
+
+#Difference in 1998 voting rates by age
+diff.1996.vote2 <- do(10000) * diffprop(AGE ~ voted1996, data = resample(turnout.data))
+confint3 <- confint(diff.1996.vote2, level = 0.95)
+kable(confint3)
+
+ggplot(turnout.data, aes(x = voted1996, y = AGE)) +
+  geom_boxplot(fill = "purple") +
+  labs(title = "Age Distribution by 1996 Voting", x = "Voted in 1996", y = "Age")
+
+#Difference in 1998 voting rates by major party affiliation
+diff.1996.vote3 <- do(10000) * diffprop(MAJORPTY ~ voted1996, data = resample(turnout.data))
+confint4 <- confint(diff.1996.vote3, level = 0.95)
+kable(confint4)
+```
+
+### Part C. 
+
+```{r, echo=FALSE}
+vote.match <- matchit(GOTV_call ~ voted1996 + AGE + MAJORPTY,
+                      data = turnout.data,
+                      method = "nearest",
+                      ratio = 5)
+
+sum.vote <- summary(vote.match)
+balance_table <- sum.vote$sum.matched
+kable(round(balance_table, 3))
+matched.data <- match.data(vote.match)
+
+vote.grouped <- group_by(matched.data, GOTV_call)
+vote.props <- summarise(vote.grouped,
+                        Proportion_Voted1998 = round(mean(voted1998 == 1), 4),
+                        Count = n())
+
+kable(vote.props, caption = "Proportion Voting in 1998 by GOTV Call (Matched Data)")
+
+meanv <- mean(voted1998 ~ GOTV_call, data = matched.data)
+diffmeanv <- diffmean(voted1998 ~ GOTV_call, data = matched.data)
+kable(meanv)
+kable(diffmeanv)
+
+#Estimate treatment effect
+treatment.effect <- diffmean(voted1998 ~ GOTV_call, data = matched.data)
+
+effect.df <- data.frame(
+  Estimate = round(treatment.effect, 5)
+)
+
+kable(effect.df, caption = "Estimated Treatment Effect: Difference in Proportions")
+
+#Bootstrapped confidence intervals
+boot.match <- do(1000) * diffmean(voted1998 ~ GOTV_call, data = resample(matched.data))
+
+#Plot the bootstrap sampling distribution
+ggplot(boot.match) + 
+  geom_histogram(aes(x = diffmean), bins = 30, fill = "lightblue", color = "white") + 
+  labs(title = "Bootstrap Sampling Distribution of Difference in Proportions", 
+       x = "Difference in Proportions (voted1998 ~ GOTV_call)",
+       y = "Count")
+
+
+confint5 <- confint(boot.match)
+kable(confint5)
+```
