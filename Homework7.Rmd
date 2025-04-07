@@ -1,0 +1,208 @@
+---
+title: "Homework 7"
+author: "Bird Smith -- kbs2529"
+date: "2025-04-1"
+output:
+  pdf_document: default
+  html_document: default
+---
+[Github Link](https://https://github.com/birds2000/Homework-7)
+
+```{r, include=FALSE}
+#Download necessary packages
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, error = FALSE)
+library(MatchIt)
+library(tidyverse)
+library(dplyr)
+library(kableExtra)
+library(stringr)
+library(mosaic)
+```
+
+## Problem 1: Armfolding
+
+```{r, include=FALSE}
+#Load the data set
+armfold.data <- read.csv("~/Documents/SDS315/armfold.csv")
+```
+
+### A. 
+
+The number of male and female students is: 
+
+```{r, echo=FALSE}
+sex_table <- table(armfold.data$Sex)
+kable(sex_table, caption = "Count of Male and Female Students")
+```
+
+```{r, include=FALSE}
+x <- sum(armfold.data$W.Hnd == "Left" & armfold.data$Sex == "Male")
+n <- 217
+sample.prop.men <- x / n
+
+y <- sum(armfold.data$W.Hnd == "Left" & armfold.data$Sex == "Female")
+sample.prop.fem <- y / n
+```
+
+The proportion of male students that folded their left arm on top is `r (x)`, and the proportion of female students that folded their left arm on top is `r (y)`. 
+
+### B.
+
+```{r, echo=FALSE}
+sample.prop.diff <- sample.prop.men - sample.prop.fem
+```
+
+The observed difference in proportions between the two groups is `r (sample.prop.diff)`. 
+
+### C.
+
+```{r, echo=FALSE}
+prop.diff = do(10000) * diffprop(W.Hnd == "Left" ~ Sex, data = resample(armfold.data))
+
+#Compute 95% confidence interval
+confint(prop.diff, level = 0.95)
+```
+
+
+The formula for the standard error and difference in proportions is: SE(p1 - p2) = sqrt(p1(1-p1)/n1 + p2(1-p2)/n2). P1 is the sample proportion of males who folded with the left arm on top, p2 is the sample proportion of females who did the same, and n1 and n2 are the number of males and females in the sample. I plugged in 0.0415 for p1, 106 for n1, 0.0323 for p2, and 111 for n2. The z value I used is 1.96 for a 95% confidence level because the sampling distribution of the difference in proportions is approximately normal under large sample conditions (Central Limit Theorem). The confidence interval is (p1 - p2 +- 1.96 * SE). 
+
+### D. 
+
+If we were to repeat the sampling process many times and construct a 95% confidence interval each time, then we would expect that 95% of those intervals would contain the true difference in proportions of left-arm folding between males and females. 
+
+### E. 
+
+The standard error represents how much we would expect the difference in sample proportions to vary from sample-to-sample, purely due to random sampling variation. It's a measure of the uncertainty in our estimate of the difference between male and female arm-folding proportions. 
+
+### F. 
+
+The sampling distribution, in this case, refers to the distribution of the statistic over many hypothetical repeated samples from the same population. In this context, what's varying is the observed difference in proportions from sample to sample, while the true population parameters stay unchanged. 
+
+### G. 
+
+The Central Limit Theorem justifies using a normal distribution to approximate the sampling distribution of the difference in proportions. It says that, under the condition of large enough sample sizes, the distribution of the sample statistic will be approximately normal, regardless of the shape of the population distribution. 
+
+### H. 
+
+If the 95% confidence interval is [-0.0467, 0.0929], we can say that even though males were slightly more likely to fold their left arm on top, the 95% confidence interval includes 0. This means that the observed difference could plausibly be due to chance. So, one could make the statement "There might be a sex difference, but the evidence is not strong enough to confidently claim one exists."
+
+### I. 
+
+Yes, the confidence interval would be different across samples because of random variation in who is selected. But if we constructed a 95% confidence interval each time, then about 95% of those intervals would capture the true population difference in proportions. 
+
+
+## Problem 2: Get out the Vote
+
+```{r, include=FALSE}
+#Load the data set
+turnout.data <- read.csv("~/Documents/SDS315/turnout.csv")
+```
+
+### Part A. 
+
+```{r, echo=FALSE}
+w <- sum(turnout.data$voted1998 == 1 & turnout.data$GOTV_call == 1)
+d <- 217
+prop.voted <- w / d
+
+m <- sum(turnout.data$voted1998 == 1 & turnout.data$GOTV_call == 0)
+prop.voted2 <- m / d
+
+prop.diff2 = do(10000) * diffprop(voted1998 == 1 ~ GOTV_call, data = resample(turnout.data))
+
+#Compute 95% confidence interval
+confint <- confint(prop.diff2, level = 0.95)
+```
+
+The proportion of those receiving a GOTV call who voted in 1998 is `r round(prop.voted, 3)`. The sample proportion of those not receiving `r round(prop.voted2, 3)`. The large-sample 95% confidence interval for the difference in these two proportions of voting in 1998 for those who received a GOTV call versus those who didn't is `r (confint)`. 
+
+### Part B. 
+
+```{r, echo=FALSE}
+vote_table <- table(turnout.data$voted1998, turnout.data$voted1996)
+kable(vote_table, caption = "Voting in 1998 by Voting in 1996")
+
+age_summary <- summarise(
+  group_by(turnout.data, voted1996),
+  Mean_Age = round(mean(AGE), 1),
+  SD_Age = round(sd(AGE), 1),
+  Min_Age = min(AGE),
+  Max_Age = max(AGE),
+  N = n()
+)
+kable(age_summary, caption = "Summary of Age by Voting in 1996")
+
+party_table <- table(turnout.data$MAJORPTY, turnout.data$voted1996)
+kable(party_table, caption = "Party Affiliation by Voting in 1996")
+
+#Difference in 1998 voting rates by 1996 voting
+diff.1996.vote <- do(10000) * diffprop(voted1998 ~ voted1996, data = resample(turnout.data))
+confint2 <- confint(diff.1996.vote, level = 0.95)
+kable(confint2)
+
+#Difference in 1998 voting rates by age
+diff.1996.vote2 <- do(10000) * diffprop(AGE ~ voted1996, data = resample(turnout.data))
+confint3 <- confint(diff.1996.vote2, level = 0.95)
+kable(confint3)
+
+ggplot(turnout.data, aes(x = voted1996, y = AGE)) +
+  geom_boxplot(fill = "purple") +
+  labs(title = "Age Distribution by 1996 Voting", x = "Voted in 1996", y = "Age")
+
+#Difference in 1998 voting rates by major party affiliation
+diff.1996.vote3 <- do(10000) * diffprop(MAJORPTY ~ voted1996, data = resample(turnout.data))
+confint4 <- confint(diff.1996.vote3, level = 0.95)
+kable(confint4)
+```
+
+### Part C. 
+
+```{r, echo=FALSE}
+vote.match <- matchit(GOTV_call ~ voted1996 + AGE + MAJORPTY,
+                      data = turnout.data,
+                      method = "nearest",
+                      ratio = 5)
+
+sum.vote <- summary(vote.match)
+balance_table <- sum.vote$sum.matched
+kable(round(balance_table, 3))
+matched.data <- match.data(vote.match)
+
+vote.grouped <- group_by(matched.data, GOTV_call)
+vote.props <- summarise(vote.grouped,
+                        Proportion_Voted1998 = round(mean(voted1998 == 1), 4),
+                        Count = n())
+
+kable(vote.props, caption = "Proportion Voting in 1998 by GOTV Call (Matched Data)")
+
+meanv <- mean(voted1998 ~ GOTV_call, data = matched.data)
+diffmeanv <- diffmean(voted1998 ~ GOTV_call, data = matched.data)
+kable(meanv)
+kable(diffmeanv)
+
+#Estimate treatment effect
+treatment.effect <- diffmean(voted1998 ~ GOTV_call, data = matched.data)
+
+effect.df <- data.frame(
+  Estimate = round(treatment.effect, 5)
+)
+
+kable(effect.df, caption = "Estimated Treatment Effect: Difference in Proportions")
+
+#Bootstrapped confidence intervals
+boot.match <- do(1000) * diffmean(voted1998 ~ GOTV_call, data = resample(matched.data))
+
+#Plot the bootstrap sampling distribution
+ggplot(boot.match) + 
+  geom_histogram(aes(x = diffmean), bins = 30, fill = "lightblue", color = "white") + 
+  labs(title = "Bootstrap Sampling Distribution of Difference in Proportions", 
+       x = "Difference in Proportions (voted1998 ~ GOTV_call)",
+       y = "Count")
+
+
+confint5 <- confint(boot.match)
+kable(confint5)
+```
+
+The matched data helps reduce bias from confounding variables like whether they voted in 1996, what age the voter is, and if they belong to a majority party. After matching on voted1996, AGE, and MAJORPTY, the groups are well balanced on those confounding variables. The new estimated effect of the GOTV call is a 7.85 percentage point increase in the likelihood of voting. The 95% confidence interval for the effect, [0.0081, 0.1413], still does not include 0, so we conclude that the GOTV call likely had a positive causal effect on voting turnout in 1998, even after accounting for confounding variables. 
+
